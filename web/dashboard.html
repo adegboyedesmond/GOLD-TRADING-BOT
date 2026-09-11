@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1e1b17;
+    --panel: #27231e;
+    --line: #3a342c;
+    --text: #efe7d8;
+    --muted: #a39985;
+    --gold: #d9b24c;
+    --buy: #54b98c;
+    --sell: #e2674f;
+    --cond: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "Barlow", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 400 16px/1.5 var(--body); font-variant-numeric: tabular-nums; }
+  h1, h2, h3, p { margin: 0; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 20px 24px 48px; }
+
+  /* top bar */
+  .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 28px; padding-bottom: 18px;
+         border-bottom: 1px solid var(--line); }
+  .sym { font: 700 28px/1 var(--cond); letter-spacing: .02em; }
+  .quote { display: flex; gap: 20px; font: 600 26px/1 var(--cond); color: var(--gold); }
+  .quote small { display: block; font: 500 13px/1.4 var(--body); color: var(--muted); }
+  .spread { color: var(--muted); font-size: 14px; }
+  .acct { margin-left: auto; text-align: right; color: var(--muted); font-size: 14px; }
+  .acct strong { color: var(--text); font-weight: 600; }
+  .practice { display: inline-block; margin-top: 4px; padding: 2px 10px; border: 1px solid var(--gold);
+              border-radius: 999px; color: var(--gold); font-size: 13px; }
+  .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--buy);
+              margin-right: 6px; vertical-align: 1px; }
+  .stale .live-dot { background: var(--sell); }
+
+  .banner { display: none; margin-top: 16px; padding: 12px 16px; border-left: 4px solid var(--sell);
+            background: #3a2520; }
+  .banner code { font-family: Consolas, monospace; color: var(--gold); }
+  .stale .banner { display: block; }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; margin-top: 24px; }
+  .decision { padding: 28px 30px 30px; background: var(--panel); border-radius: 4px;
+              border-top: 6px solid var(--muted); }
+  .decision[data-action="BUY"] { border-top-color: var(--buy); }
+  .decision[data-action="SELL"] { border-top-color: var(--sell); }
+  .decision[data-action="IN TRADE"] { border-top-color: var(--gold); }
+  .decision[data-action="STOPPED"] { border-top-color: var(--sell); }
+  .word { font: 700 clamp(88px, 13vw, 168px)/.86 var(--cond); letter-spacing: -.01em; color: var(--muted); }
+  [data-action="BUY"] .word { color: var(--buy); }
+  [data-action="SELL"] .word { color: var(--sell); }
+  [data-action="IN TRADE"] .word { color: var(--gold); }
+  [data-action="STOPPED"] .word { color: var(--sell); }
+  .headline { margin-top: 18px; font: 600 24px/1.25 var(--cond); }
+  .reasons { margin: 12px 0 0; padding: 0; list-style: none; color: var(--muted); max-width: 62ch; }
+  .reasons li { padding: 4px 0; }
+  .flash { animation: flash 1.2s ease-out 2; }
+  @keyframes flash { 0% { background: #3d3526; } 100% { background: var(--panel); } }
+
+  .ticket { padding: 24px 26px; background: var(--panel); border-radius: 4px; }
+  .ticket h2 { font: 600 22px/1.2 var(--cond); }
+  .ticket .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .levels { margin-top: 14px; }
+  .lv { display: grid; grid-template-columns: 1fr auto 70px; gap: 16px; align-items: baseline;
+        padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .levels .k { color: var(--muted); }
+  .levels .v { font: 600 26px/1 var(--cond); text-align: right; }
+  .levels .d { color: var(--muted); font-size: 14px; text-align: right; }
+  .v.sl { color: var(--sell); } .v.tp { color: var(--buy); } .v.en { color: var(--gold); }
+  .money { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+  .money div { color: var(--muted); font-size: 14px; }
+  .money b { display: block; color: var(--text); font: 600 22px/1.2 var(--cond); }
+  .note { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .note.warn { color: var(--sell); }
+  .empty { color: var(--muted); margin-top: 14px; }
+
+  /* middle row */
+  .grid3 { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 24px; margin-top: 24px; }
+  .card { padding: 22px 24px; background: var(--panel); border-radius: 4px; }
+  .card h3 { font: 600 20px/1.2 var(--cond); margin-bottom: 12px; }
+  .gates { margin: 0; padding: 0; list-style: none; counter-reset: g; }
+  .gates li { display: grid; grid-template-columns: 26px 1fr; gap: 2px 10px; padding: 9px 0;
+              border-bottom: 1px solid var(--line); counter-increment: g; }
+  .gates li:last-child { border-bottom: 0; }
+  .mark { grid-row: span 2; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+          font: 700 13px/1 var(--body); color: var(--bg); background: var(--sell); margin-top: 2px; }
+  .ok .mark { background: var(--buy); }
+  .gates .n { font-weight: 600; }
+  .gates .n::before { content: counter(g) ". "; color: var(--muted); font-weight: 400; }
+  .gates .t { color: var(--muted); font-size: 14px; }
+
+  .meter { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; margin: 10px 0 6px; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--gold); }
+  .meter.bad i { background: var(--sell); }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); }
+  .row b { color: var(--text); font-weight: 600; }
+
+  .news-item { padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .news-item:last-child { border-bottom: 0; }
+  .news-item .when { color: var(--muted); font-size: 14px; }
+  .news-item.now { color: var(--sell); }
+
+  /* tables */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px 8px 8px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  .buy { color: var(--buy); } .sell { color: var(--sell); } .dim { color: var(--muted); }
+  .positions { margin-top: 24px; }
+
+  @media (max-width: 960px) {
+    .hero, .grid3, .grid2 { grid-template-columns: 1fr; }
+    .acct { margin-left: 0; text-align: left; }
+  }
+  @media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header class="top">
+    <div class="sym" id="sym">XAUUSD</div>
+    <div class="quote">
+      <div><small>Sell at (bid)</small><span id="bid">-</span></div>
+      <div><small>Buy at (ask)</small><span id="ask">-</span></div>
+    </div>
+    <div class="spread" id="spread"></div>
+    <div class="acct">
+      <div><span class="live-dot"></span><span id="updated">Waiting for the bot</span></div>
+      <div id="acct"></div>
+      <div class="practice" id="practice" hidden>Practice mode: orders are logged, not sent</div>
+    </div>
+  </header>
+
+  <div class="banner" id="banner">The bot is not running or has stopped updating. Start it with <code>python main.py</code> and keep MT5 open.</div>
+
+  <section class="hero">
+    <div class="decision" id="decision" data-action="WAIT" aria-live="polite">
+      <div class="word" id="word">WAIT</div>
+      <p class="headline" id="headline">Waiting for data from the bot.</p>
+      <ul class="reasons" id="reasons"></ul>
+    </div>
+
+    <div class="ticket" id="ticket">
+      <h2 id="ticketTitle">Trade plan</h2>
+      <p class="sub" id="ticketSub"></p>
+      <div id="ticketBody"><p class="empty">No plan yet.</p></div>
+    </div>
+  </section>
+
+  <section class="positions card" id="positionsCard" hidden>
+    <h3>Open trade</h3>
+    <table><thead><tr><th>Ticket</th><th>Side</th><th>Lots</th><th>Entry</th><th>Stop loss</th><th>Take profit</th><th>Now</th><th>Profit</th></tr></thead>
+      <tbody id="positions"></tbody></table>
+  </section>
+
+  <section class="grid3">
+    <div class="card">
+      <h3>Rules, in the order the bot checks them</h3>
+      <ol class="gates" id="gates"></ol>
+    </div>
+    <div class="card">
+      <h3>Today</h3>
+      <div class="row"><span>Closed profit/loss</span><b id="pnl">-</b></div>
+      <div class="meter" id="meter"><i id="meterFill"></i></div>
+      <div class="dim" id="meterText" style="font-size:14px"></div>
+      <div class="row" style="margin-top:12px"><span>Balance</span><b id="balance">-</b></div>
+      <div class="row"><span>Equity</span><b id="equity">-</b></div>
+      <div class="row"><span>Trading hours</span><b id="session">-</b></div>
+    </div>
+    <div class="card">
+      <h3>News that stops trading</h3>
+      <div id="news"><p class="dim">No blocking news this week.</p></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h3>Recent checks</h3>
+      <table><thead><tr><th>Time</th><th>Trend</th><th>Cross</th><th>RSI</th><th>Result</th></tr></thead>
+        <tbody id="signals"><tr><td colspan="5" class="dim">Checks appear here during trading hours.</td></tr></tbody></table>
+    </div>
+    <div class="card">
+      <h3>Orders</h3>
+      <table><thead><tr><th>Time</th><th>Side</th><th>Lots</th><th>Entry</th><th>SL</th><th>TP</th><th>Status</th></tr></thead>
+        <tbody id="trades"><tr><td colspan="7" class="dim">No orders yet.</td></tr></tbody></table>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (n, d = 2) => (n === null || n === undefined || isNaN(n)) ? "-" :
+  Number(n).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
+const money = (n, cur) => (n >= 0 ? "" : "-") + "$" + fmt(Math.abs(n)) + (cur && cur !== "USD" ? " " + cur : "");
+const time = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) : "-";
+const dayTime = (iso) => new Date(iso).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"});
+
+function localize(text) {
+  // ISO timestamps -> local time; "12:30 UTC" -> local time
+  return esc(text)
+    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\+00:00/g, (m) => dayTime(m))
+    .replace(/\b(\d{2}):(\d{2}) UTC\b/g, (m, h, mi) => {
+      const d = new Date(); d.setUTCHours(+h, +mi, 0, 0);
+      return d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    })
+    .replace(/\s*\[FF-[0-9a-f]+\]/g, "");
+}
+
+function countdown(iso, now) {
+  const mins = Math.round((new Date(iso) - now) / 60000);
+  if (mins < -30) return "done";
+  if (mins <= 0) return "happening now";
+  if (mins < 60) return `in ${mins} min`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h < 48 ? `in ${h} h ${m} min` : `in ${Math.round(h / 24)} days`;
+}
+
+let lastAction = null;
+
+function render(data) {
+  const s = data.live;
+  const now = new Date(data.now);
+  const stale = !s || (now - new Date(s.updated)) > 45000;
+  $("app").classList.toggle("stale", stale);
+  if (!s) return;
+
+  const d = s.plan ? s.plan.digits : 2;
+  $("sym").textContent = s.symbol;
+  $("bid").textContent = fmt(s.price.bid, d);
+  $("ask").textContent = fmt(s.price.ask, d);
+  $("spread").textContent = `Spread ${fmt(s.price.spread, d)}`;
+  $("updated").textContent = stale ? `Last update ${time(s.updated)}` : `Live, updated ${time(s.updated)}`;
+  $("acct").innerHTML = `${s.account.demo ? "Demo" : "<strong>Real money</strong>"} account <strong>${esc(s.account.login)}</strong>`;
+  $("practice").hidden = !s.dry_run;
+
+  // decision
+  const a = s.decision.action;
+  const box = $("decision");
+  box.dataset.action = a;
+  $("word").textContent = a;
+  $("headline").textContent = s.decision.headline;
+  $("reasons").innerHTML = s.decision.reasons.map((r) => `<li>${localize(r)}</li>`).join("");
+  if (lastAction !== null && a !== lastAction && (a === "BUY" || a === "SELL")) {
+    box.classList.remove("flash"); void box.offsetWidth; box.classList.add("flash");
+  }
+  lastAction = a;
+
+  // trade plan
+  const p = s.plan;
+  if (p) {
+    const side = p.direction === "BUY" ? "Buy" : "Sell";
+    $("ticketTitle").textContent = s.plan_label === "signal" ? `${side} signal` : `${side} plan at the current price`;
+    $("ticketSub").textContent = s.plan_label === "signal"
+      ? "The bot's order uses these levels."
+      : `Trend allows ${side.toLowerCase()}s only. Use this only when the big word says ${p.direction}.`;
+    $("ticketBody").innerHTML = `
+      <div class="levels">
+        <div class="lv"><span class="k">Take profit</span><span class="v tp">${fmt(p.tp, d)}</span><span class="d">${p.direction === "BUY" ? "+" : "-"}${fmt(p.tp_distance, d)}</span></div>
+        <div class="lv"><span class="k">Entry</span><span class="v en">${fmt(p.entry, d)}</span><span class="d">${p.direction === "BUY" ? "ask" : "bid"}</span></div>
+        <div class="lv"><span class="k">Stop loss</span><span class="v sl">${fmt(p.sl, d)}</span><span class="d">${p.direction === "BUY" ? "-" : "+"}${fmt(p.sl_distance, d)}</span></div>
+      </div>
+      <div class="money">
+        <div>Lot size<b>${p.volume ? fmt(p.volume, 2) : "-"}</b></div>
+        <div>ATR (5-min)<b>${fmt(p.atr, d)}</b></div>
+        <div>You risk<b class="sell">${money(p.risk_amount)}</b></div>
+        <div>You could make<b class="buy">${money(p.reward_amount)}</b></div>
+      </div>
+      <p class="note ${p.tradable ? "" : "warn"}">${p.tradable
+        ? `Risk ${fmt(s.settings.risk_pct, 1)}% of equity. Stop ${fmt(s.settings.sl_atr, 1)} x ATR, target ${fmt(s.settings.rr, 0)}x the stop.`
+        : esc(p.note)}</p>`;
+  } else {
+    $("ticketTitle").textContent = "Trade plan";
+    $("ticketSub").textContent = "";
+    $("ticketBody").innerHTML = `<p class="empty">${a === "IN TRADE" ? "A trade is already open, see below." :
+      a === "STOPPED" ? "Trading is stopped for today." : "No trend direction yet, so no plan."}</p>`;
+  }
+
+  // open positions
+  $("positionsCard").hidden = !s.positions.length;
+  $("positions").innerHTML = s.positions.map((x) => `<tr>
+    <td>${x.ticket}</td><td class="${x.type.toLowerCase()}">${x.type}</td><td>${fmt(x.volume)}</td>
+    <td>${fmt(x.entry, d)}</td><td class="sell">${fmt(x.sl, d)}</td><td class="buy">${fmt(x.tp, d)}</td>
+    <td>${fmt(x.price, d)}</td><td class="${x.profit >= 0 ? "buy" : "sell"}">${money(x.profit ?? 0)}</td></tr>`).join("");
+
+  // rules
+  $("gates").innerHTML = s.gates.map((g) => `<li class="${g.ok ? "ok" : ""}">
+      <span class="mark" aria-label="${g.ok ? "passed" : "not met"}">${g.ok ? "&#10003;" : "&#10005;"}</span>
+      <span class="n">${esc(g.name)}</span><span class="t">${localize(g.detail)}</span></li>`).join("");
+
+  // today
+  const b = s.breaker;
+  $("pnl").textContent = money(b.pnl);
+  $("pnl").className = b.pnl >= 0 ? "buy" : "sell";
+  const used = Math.min(100, Math.max(0, -b.pnl / b.limit * 100));
+  $("meterFill").style.width = used + "%";
+  $("meter").classList.toggle("bad", used >= 66);
+  $("meterText").textContent = b.tripped ? "Daily loss limit reached."
+    : `${fmt(used, 0)}% of today's ${money(b.limit)} loss limit used`;
+  $("balance").textContent = money(s.account.balance);
+  $("equity").textContent = money(s.account.equity);
+  $("session").textContent = s.session.open ? `Open until ${time(s.session.closes)}` : `Opens ${dayTime(s.session.next_open)}`;
+
+  // news
+  const up = s.news.upcoming;
+  $("news").innerHTML = up.length ? up.map((e) => {
+    const c = countdown(e.time, now);
+    return `<div class="news-item ${c === "happening now" ? "now" : ""}"><div>${esc(e.title)}</div>
+      <div class="when">${dayTime(e.time)}, ${c}</div></div>`;
+  }).join("") : `<p class="dim">No blocking news in the next 7 days.</p>`;
+
+  // recent checks
+  if (data.signals.length) {
+    $("signals").innerHTML = data.signals.map((x) => {
+      const c = x.checks || {};
+      const res = x.direction ? `<span class="${x.direction.toLowerCase()}">${x.direction}</span>` : "No trade";
+      return `<tr><td>${time(x.ts)}</td><td>${esc(c.trend ?? "-").toLowerCase()}</td>
+        <td>${c.ema_cross ? esc(c.ema_cross).toLowerCase() : "none"}</td>
+        <td class="${c.rsi_ok ? "" : "dim"}">${fmt(c.rsi, 1)}</td><td>${res}</td></tr>`;
+    }).join("");
+  }
+
+  // orders
+  if (data.trades.length) {
+    $("trades").innerHTML = data.trades.map((t) => `<tr title="${esc(t.detail)}">
+      <td>${time(t.ts)}</td><td class="${(t.direction || "").toLowerCase()}">${esc(t.direction)}</td>
+      <td>${fmt(t.volume)}</td><td>${fmt(t.entry, d)}</td><td>${fmt(t.sl, d)}</td><td>${fmt(t.tp, d)}</td>
+      <td>${esc(t.status === "DRY_RUN" ? "practice" : t.status.toLowerCase())}</td></tr>`).join("");
+  }
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/api/status", {cache: "no-store"});
+    render(await r.json());
+  } catch (e) {
+    $("app").classList.add("stale");
+    $("updated").textContent = "Dashboard server not reachable";
+  }
+}
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>
